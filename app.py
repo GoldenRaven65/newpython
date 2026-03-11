@@ -20,30 +20,21 @@ load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Load secrets from Azure Key Vault
-# Tries azd credential first (silent). If that fails (token expired / not
-# logged in), opens a browser popup once so the user can sign in.
+# Uses DefaultAzureCredential as recommended by Microsoft documentation:
+# https://learn.microsoft.com/azure/key-vault/secrets/quick-create-python
+# Locally it uses the Azure Developer CLI (azd) credential automatically.
+# In production it uses Managed Identity — no code changes needed.
 # ---------------------------------------------------------------------------
-_kv_uri    = os.getenv("KEY_VAULT_URI", "").strip()
-_kv_tenant = os.getenv("AZURE_TENANT_ID", "")
+_kv_uri = os.getenv("KEY_VAULT_URI", "").strip()
 if _kv_uri:
     try:
-        from azure.identity import (
-            AzureDeveloperCliCredential,
-            ChainedTokenCredential,
-            InteractiveBrowserCredential,
-        )
+        from azure.identity import DefaultAzureCredential
         from azure.keyvault.secrets import SecretClient
 
-        _cred = ChainedTokenCredential(
-            AzureDeveloperCliCredential(tenant_id=_kv_tenant),
-            InteractiveBrowserCredential(tenant_id=_kv_tenant),
-        )
-        _kv = SecretClient(vault_url=_kv_uri, credential=_cred)
-        for _kv_name, _env_name in {
-            "azureclientsecret": "AZURE_CLIENT_SECRET",
-            "flasksecretkey":    "FLASK_SECRET_KEY",
-        }.items():
-            os.environ[_env_name] = _kv.get_secret(_kv_name).value
+        _credential = DefaultAzureCredential()
+        _client = SecretClient(vault_url=_kv_uri, credential=_credential)
+        os.environ["AZURE_CLIENT_SECRET"] = _client.get_secret("azureclientsecret").value
+        os.environ["FLASK_SECRET_KEY"]    = _client.get_secret("flasksecretkey").value
     except Exception as _e:
         import warnings
         warnings.warn(f"Key Vault unavailable – secrets not loaded: {_e}")
