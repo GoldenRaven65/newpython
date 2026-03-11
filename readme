@@ -1,1 +1,111 @@
-hi
+# IP / Domain Reputation Checker
+
+A Python/Flask web application with **Microsoft Entra ID (Azure AD) login** that lets
+authenticated users check whether an IP address or domain name has been flagged on
+well-known reputation and block-list services.
+
+---
+
+## Features
+
+- **Microsoft Entra login** – users sign in with their Microsoft/organisational account
+- **16 IP DNSBL checks** – Spamhaus ZEN, SpamCop, Barracuda, SORBS, CBL, UCEProtect, and more
+- **7 domain DNSBL checks** – Spamhaus DBL, SURBL, URIBL, SORBS RHSBL, NordSpam DBL, and more
+- **AbuseIPDB** (optional, API key required) – confidence score + report count
+- **VirusTotal** (optional, API key required) – malicious/suspicious engine count
+- Parallel checks (all lists queried simultaneously)
+- Color-coded results with filter buttons (All / Listed / Clean)
+- Dark mode toggle
+- Input validation (only valid IPv4 or domain names accepted)
+
+---
+
+## Project structure
+
+```
+newpython/
+├── app.py              # Flask app + Microsoft Entra authentication
+├── checker.py          # DNSBL + API reputation checks
+├── requirements.txt
+├── .env.example        # Copy to .env and fill in your values
+└── templates/
+    ├── base.html
+    ├── login.html
+    └── index.html
+```
+
+---
+
+## 1 – Azure App Registration
+
+1. Go to **portal.azure.com → Microsoft Entra ID → App registrations → New registration**
+2. Name: anything, e.g. *Reputation Checker*
+3. Supported account types: choose what fits your organisation
+4. Redirect URI: **Web** → `http://localhost:5000/getAToken`
+5. After creation, note down:
+   - **Application (client) ID**
+   - **Directory (tenant) ID**
+6. Go to **Certificates & secrets → New client secret**, copy the value immediately
+
+---
+
+## 2 – Configuration
+
+```bash
+# Copy the example and fill in your values
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```ini
+AZURE_CLIENT_ID=<your Application (client) ID>
+AZURE_CLIENT_SECRET=<your client secret value>
+AZURE_TENANT_ID=<your Directory (tenant) ID>
+
+FLASK_SECRET_KEY=<random string – run: python -c "import secrets; print(secrets.token_hex(32))">
+FLASK_ENV=development
+
+# Optional – leave blank to skip
+ABUSEIPDB_API_KEY=
+VIRUSTOTAL_API_KEY=
+```
+
+---
+
+## 3 – Install & run
+
+```bash
+# Create and activate a virtual environment (recommended)
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # Linux/macOS
+
+# Install dependencies
+python -m pip install -r requirements.txt
+
+# Start the app
+python app.py
+```
+
+Open **http://localhost:5000** in your browser.
+
+---
+
+## Optional API keys
+
+| Service    | Where to get a key                         | What it adds                         |
+|------------|--------------------------------------------|--------------------------------------|
+| AbuseIPDB  | https://www.abuseipdb.com/api              | Confidence score, report count       |
+| VirusTotal | https://www.virustotal.com/gui/my-apikey   | Malicious / suspicious engine totals |
+
+Both are entirely optional – all DNSBL checks work without them.
+
+---
+
+## Production notes
+
+- Run behind **HTTPS** (e.g. nginx + Let's Encrypt or Azure App Service with TLS)
+- Replace the in-process Flask dev server with **gunicorn** or **waitress**
+- Use a proper external session store (e.g. Redis via `flask-session`) for multi-worker deployments
+- Set `FLASK_ENV=production` and use a strong, fixed `FLASK_SECRET_KEY`
