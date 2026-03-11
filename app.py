@@ -19,18 +19,26 @@ from checker import check_domain, check_ip
 load_dotenv()
 
 # ---------------------------------------------------------------------------
-# Load secrets from Azure Key Vault via azd credentials
+# Load secrets from Azure Key Vault
+# Tries azd credential first (silent). If that fails (token expired / not
+# logged in), opens a browser popup once so the user can sign in.
 # ---------------------------------------------------------------------------
-_kv_uri = os.getenv("KEY_VAULT_URI", "").strip()
+_kv_uri    = os.getenv("KEY_VAULT_URI", "").strip()
 _kv_tenant = os.getenv("AZURE_TENANT_ID", "")
 if _kv_uri:
     try:
-        from azure.identity import AzureDeveloperCliCredential
-        from azure.keyvault.secrets import SecretClient
-        _kv = SecretClient(
-            vault_url=_kv_uri,
-            credential=AzureDeveloperCliCredential(tenant_id=_kv_tenant),
+        from azure.identity import (
+            AzureDeveloperCliCredential,
+            ChainedTokenCredential,
+            InteractiveBrowserCredential,
         )
+        from azure.keyvault.secrets import SecretClient
+
+        _cred = ChainedTokenCredential(
+            AzureDeveloperCliCredential(tenant_id=_kv_tenant),
+            InteractiveBrowserCredential(tenant_id=_kv_tenant),
+        )
+        _kv = SecretClient(vault_url=_kv_uri, credential=_cred)
         for _kv_name, _env_name in {
             "azureclientsecret": "AZURE_CLIENT_SECRET",
             "flasksecretkey":    "FLASK_SECRET_KEY",
