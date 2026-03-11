@@ -30,6 +30,7 @@ CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET")
 TENANT_ID = os.getenv("AZURE_TENANT_ID")
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 REDIRECT_PATH = "/getAToken"
+REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:5000/getAToken")
 SCOPE = ["User.Read"]
 
 # ---------------------------------------------------------------------------
@@ -106,7 +107,7 @@ def login():
     try:
         flow = _build_msal_app().initiate_auth_code_flow(
             SCOPE,
-            redirect_uri=url_for("authorized", _external=True),
+            redirect_uri=REDIRECT_URI,
         )
     except Exception as exc:
         return render_template("login.html", error=str(exc))
