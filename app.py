@@ -19,37 +19,23 @@ from checker import check_domain, check_ip
 load_dotenv()
 
 # ---------------------------------------------------------------------------
-# Load secrets from Azure Key Vault
+# Load secrets from Azure Key Vault via azd credentials
 # ---------------------------------------------------------------------------
 _kv_uri = os.getenv("KEY_VAULT_URI", "").strip()
 _kv_tenant = os.getenv("AZURE_TENANT_ID", "")
 if _kv_uri:
     try:
-        from azure.identity import (
-            DefaultAzureCredential,
-            InteractiveBrowserCredential,
-        )
+        from azure.identity import AzureDeveloperCliCredential
         from azure.keyvault.secrets import SecretClient
-
-        # Try DefaultAzureCredential first (works in Azure / CI / when az login is set up).
-        # If that fails locally, fall back to an interactive browser popup so the user
-        # can sign in to the correct tenant without needing Azure CLI installed.
-        try:
-            _cred = DefaultAzureCredential()
-            # Eagerly test the credential so we catch failures here, not later.
-            _cred.get_token("https://vault.azure.net/.default")
-        except Exception:
-            _cred = InteractiveBrowserCredential(tenant_id=_kv_tenant)
-
-        _kv = SecretClient(vault_url=_kv_uri, credential=_cred)
+        _kv = SecretClient(
+            vault_url=_kv_uri,
+            credential=AzureDeveloperCliCredential(tenant_id=_kv_tenant),
+        )
         for _kv_name, _env_name in {
             "azureclientsecret": "AZURE_CLIENT_SECRET",
             "flasksecretkey":    "FLASK_SECRET_KEY",
         }.items():
-            try:
-                os.environ[_env_name] = _kv.get_secret(_kv_name).value
-            except Exception:
-                pass
+            os.environ[_env_name] = _kv.get_secret(_kv_name).value
     except Exception as _e:
         import warnings
         warnings.warn(f"Key Vault unavailable – secrets not loaded: {_e}")
