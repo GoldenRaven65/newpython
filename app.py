@@ -28,7 +28,7 @@ CLIENT_ID     = os.getenv("AZURE_CLIENT_ID")
 CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET")
 TENANT_ID     = os.getenv("AZURE_TENANT_ID")
 AUTHORITY     = f"https://login.microsoftonline.com/{TENANT_ID}"
-REDIRECT_URI  = os.getenv("REDIRECT_URI", "http://localhost:5000/getAToken")
+
 SCOPE         = ["User.Read"]
 
 # ---------------------------------------------------------------------------
@@ -77,18 +77,6 @@ def _validate_target(target: str) -> tuple[bool, str]:
 @login_required
 def index():
     return render_template("index.html", user=session["user"])
-
-
-@app.route("/login")
-def login():
-    if session.get("user"):
-        return redirect(url_for("index"))
-    try:
-        flow = _build_msal_app().initiate_auth_code_flow(SCOPE, redirect_uri=REDIRECT_URI)
-    except Exception as exc:
-        return render_template("login.html", error=str(exc))
-    session["flow"] = flow
-    return redirect(flow["auth_uri"])
 
 
 @app.route("/getAToken")
