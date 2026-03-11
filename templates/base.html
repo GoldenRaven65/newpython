@@ -13,9 +13,10 @@
     }
 
     body {
-      background-color: #f4f6f9;
       min-height: 100vh;
     }
+    [data-bs-theme="light"] body, [data-bs-theme="light"] { background-color: #f4f6f9; }
+    [data-bs-theme="dark"]  body, [data-bs-theme="dark"]  { background-color: #121212; }
 
     /* ── Navbar ── */
     .navbar-brand {
@@ -55,7 +56,8 @@
     /* ── Loader ── */
     #loading-overlay {
       display: none; position: fixed; inset: 0;
-      background: rgba(255,255,255,.75); z-index: 9999;
+      background: rgba(128,128,128,.45); backdrop-filter: blur(4px);
+      z-index: 9999;
       align-items: center; justify-content: center; flex-direction: column;
     }
 
@@ -84,13 +86,31 @@
     <a class="navbar-brand" href="{{ url_for('index') }}">
       <i class="bi bi-shield-shaded me-2"></i>Reputation Checker
     </a>
-    <ul class="navbar-nav ms-auto align-items-center">
-      <li class="nav-item">
-        <button id="theme-toggle" class="btn btn-sm btn-outline-light" title="Toggle dark mode">
-          <i class="bi bi-moon-stars-fill"></i>
-        </button>
-      </li>
-    </ul>
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon" style="filter:invert(1)"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto align-items-center gap-3">
+        {% if session.get('user') %}
+        <li class="nav-item">
+          <span class="navbar-text text-white">
+            <i class="bi bi-person-circle me-1"></i>
+            Welcome, {{ session['user'].get('name', session['user'].get('preferred_username', 'User')).split()[0] }}
+          </span>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="{{ url_for('logout') }}">
+            <i class="bi bi-box-arrow-right me-1"></i>Logout
+          </a>
+        </li>
+        {% endif %}
+        <li class="nav-item">
+          <button id="theme-toggle" class="btn btn-sm btn-outline-light" title="Toggle dark mode">
+            <i class="bi bi-moon-stars-fill"></i>
+          </button>
+        </li>
+      </ul>
+    </div>
   </div>
 </nav>
 
