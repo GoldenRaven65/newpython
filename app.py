@@ -17,7 +17,35 @@ from flask import (
 
 from checker import check_domain, check_ip
 
+# ---------------------------------------------------------------------------
+# Load config: .env first, then override sensitive values from Azure Key Vault
+# ---------------------------------------------------------------------------
 load_dotenv()
+
+_KEY_VAULT_URI = os.getenv("KEY_VAULT_URI", "").strip()
+if _KEY_VAULT_URI:
+    try:
+        from azure.identity import DefaultAzureCredential
+        from azure.keyvault.secrets import SecretClient
+
+        _kv = SecretClient(vault_url=_KEY_VAULT_URI, credential=DefaultAzureCredential())
+
+        # Only true secrets are stored in Key Vault.
+        # Non-sensitive IDs come from App Service environment variables (or local .env).
+        _SECRET_MAP = {
+            "AZURE-CLIENT-SECRET": "AZURE_CLIENT_SECRET",
+            "FLASK-SECRET-KEY":    "FLASK_SECRET_KEY",
+            "ABUSEIPDB-API-KEY":   "ABUSEIPDB_API_KEY",
+            "VIRUSTOTAL-API-KEY":  "VIRUSTOTAL_API_KEY",
+        }
+        for kv_name, env_name in _SECRET_MAP.items():
+            try:
+                os.environ[env_name] = _kv.get_secret(kv_name).value
+            except Exception:
+                pass  # Secret may not exist; fall back to env var
+    except Exception as _kv_err:
+        import warnings
+        warnings.warn(f"Key Vault load failed: {_kv_err}")
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(24))
