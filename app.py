@@ -18,6 +18,42 @@ from checker import check_domain, check_ip
 
 load_dotenv()
 
+# ---------------------------------------------------------------------------
+# Load secrets from Azure Key Vault
+# ---------------------------------------------------------------------------
+_kv_uri = os.getenv("KEY_VAULT_URI", "").strip()
+_kv_tenant = os.getenv("AZURE_TENANT_ID", "")
+if _kv_uri:
+    try:
+        from azure.identity import (
+            DefaultAzureCredential,
+            InteractiveBrowserCredential,
+        )
+        from azure.keyvault.secrets import SecretClient
+
+        # Try DefaultAzureCredential first (works in Azure / CI / when az login is set up).
+        # If that fails locally, fall back to an interactive browser popup so the user
+        # can sign in to the correct tenant without needing Azure CLI installed.
+        try:
+            _cred = DefaultAzureCredential()
+            # Eagerly test the credential so we catch failures here, not later.
+            _cred.get_token("https://vault.azure.net/.default")
+        except Exception:
+            _cred = InteractiveBrowserCredential(tenant_id=_kv_tenant)
+
+        _kv = SecretClient(vault_url=_kv_uri, credential=_cred)
+        for _kv_name, _env_name in {
+            "azureclientsecret": "AZURE_CLIENT_SECRET",
+            "flasksecretkey":    "FLASK_SECRET_KEY",
+        }.items():
+            try:
+                os.environ[_env_name] = _kv.get_secret(_kv_name).value
+            except Exception:
+                pass
+    except Exception as _e:
+        import warnings
+        warnings.warn(f"Key Vault unavailable – secrets not loaded: {_e}")
+
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(24))
 
@@ -28,7 +64,7 @@ CLIENT_ID     = os.getenv("AZURE_CLIENT_ID")
 CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET")
 TENANT_ID     = os.getenv("AZURE_TENANT_ID")
 AUTHORITY     = f"https://login.microsoftonline.com/{TENANT_ID}"
-
+REDIRECT_URI  = os.getenv("REDIRECT_URI", "http://localhost:5000/getAToken")
 SCOPE         = ["User.Read"]
 
 # ---------------------------------------------------------------------------
@@ -77,6 +113,24 @@ def _validate_target(target: str) -> tuple[bool, str]:
 @login_required
 def index():
     return render_template("index.html", user=session["user"])
+
+
+@app.route("/login")
+def login():
+    if session.get("user"):
+        return redirect(url_for("index"))
+    if not os.getenv("AZURE_CLIENT_SECRET"):
+        return render_template(
+            "login.html",
+            error="App client secret not loaded. Key Vault is unreachable – "
+                  "make sure you are signed in to the correct Azure tenant.",
+        )
+    try:
+        flow = _build_msal_app().initiate_auth_code_flow(SCOPE, redirect_uri=REDIRECT_URI)
+    except Exception as exc:
+        return render_template("login.html", error=str(exc))
+    session["flow"] = flow
+    return redirect(flow["auth_uri"])
 
 
 @app.route("/getAToken")
