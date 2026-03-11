@@ -33,10 +33,10 @@ if _KEY_VAULT_URI:
         # Only true secrets are stored in Key Vault.
         # Non-sensitive IDs come from App Service environment variables (or local .env).
         _SECRET_MAP = {
-            "AZURE-CLIENT-SECRET": "AZURE_CLIENT_SECRET",
-            "FLASK-SECRET-KEY":    "FLASK_SECRET_KEY",
-            "ABUSEIPDB-API-KEY":   "ABUSEIPDB_API_KEY",
-            "VIRUSTOTAL-API-KEY":  "VIRUSTOTAL_API_KEY",
+            "azureclientsecret": "AZURE_CLIENT_SECRET",
+            "flasksecretkey":    "FLASK_SECRET_KEY",
+            "abuseipdb-api-key": "ABUSEIPDB_API_KEY",
+            "virustotal-api-key": "VIRUSTOTAL_API_KEY",
         }
         for kv_name, env_name in _SECRET_MAP.items():
             try:
